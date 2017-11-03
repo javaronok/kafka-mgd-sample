@@ -26,7 +26,7 @@ public class Producer {
         }
 
         try {
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 // send lots of messages
                 Date t = new Date();
                 producer.send(new ProducerRecord<String, String>(

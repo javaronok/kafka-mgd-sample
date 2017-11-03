@@ -1,5 +1,5 @@
 bootstrap.servers=localhost:9092
-group.id=howler
+group.id=test
 enable.auto.commit=false
 key.deserializer=org.apache.kafka.common.serialization.StringDeserializer
 value.deserializer=org.apache.kafka.common.serialization.StringDeserializer
