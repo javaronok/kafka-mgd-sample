@@ -1,71 +1,66 @@
-# Sample Programs for Kafka 0.9 API
+# Пример приложения для обмена сообщениями через Apache Kafka в режиме единственного брокера 
 
-This project provides a simple but realistic example of a Kafka
-producer and consumer. These programs are written in a style and a
-scale that will allow you to adapt them to get something close to a
-production style. There is a surprising dearth of examples for the new
-Kafka API that arrived with 0.9.0, which is a pity since the new API
-is so much better than the previous API.
+Простой пример обмегна сообщениями по схеме поставщик-потребитель. 
+Используется Kafka API начиная с версии 0.9.0.
 
-This README takes you through the steps for downloading and installing
-a single node version of Kafka. We don't focus on the requirements for
-a production Kafka cluster because we want to focus on the code itself
-and various aspects of starting and restarting.
+Для запуска необходимо выполнить несколько шагов: скачать, установить Kafka, 
+запустить и содать необходимые очереди (топики)     
 
-## Pre-requisites
-To start, you need to get Kafka up and running and create some topics.
+### Шаг 1: Скачать Apache Kafka
 
-### Step 1: Download Kafka
-Download the 0.9.0.0 release and un-tar it.
-```
-$ tar -xzf kafka_2.11-0.9.0.0.tgz
-$ cd kafka_2.11-0.9.0.0
-```
-### Step 2: Start the server
-Start a ZooKeeper server. Kafka has a single node Zookeeper configuration built-in.
-```
-$ bin/zookeeper-server-start.sh config/zookeeper.properties &
-[2013-04-22 15:01:37,495] INFO Reading configuration from: config/zookeeper.properties (org.apache.zookeeper.server.quorum.QuorumPeerConfig)
-...
-```
-Note that this will start Zookeeper in the background. To stop
-Zookeeper, you will need to bring it back to the foreground and use
-control-C or you will need to find the process and kill it.
+На текущий момент крайняя релизная версия kafka_2.12-0.11.0.1. 
+Далее следует распаковать tar архив.
 
-Now start Kafka itself:
 ```
-$ bin/kafka-server-start.sh config/server.properties &
-[2013-04-22 15:01:47,028] INFO Verifying properties (kafka.utils.VerifiableProperties)
-[2013-04-22 15:01:47,051] INFO Property socket.send.buffer.bytes is overridden to 1048576 (kafka.utils.VerifiableProperties)
-...
+$ tar -xzf kafka_2.12-0.11.0.1.tgz
+$ cd kafka_2.12-0.11.0.1
 ```
-As with Zookeeper, this runs the Kafka broker in the background. To
-stop Kafka, you will need to bring it back to the foreground or find
-the process and kill it explicitly using `kill`.
+### Шаг 2: Запуск сервера
+Запустим сервер ZooKeeper ранее подготовленным скриптом run_zookeeper.sh. Скрипт запускает ZK с настройками поумолчанию. 
+Kafka использует единственный узел для ZK. 
 
-### Step 3: Create the topics for the example programs
-We need two topics for the example program
 ```
-$ bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic fast-messages
-$ bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic summary-markers
+#!/bin/sh
+kafka_2.12-0.10.2.1/bin/zookeeper-server-start.sh kafka_2.12-0.10.2.1/config/zookeeper.properties &
 ```
-These can be listed
+
+Потом запускаем сам брокер Kafka подготовленным скриптом run_kafka.sh.
+
 ```
-$ bin/kafka-topics.sh --list --zookeeper localhost:2181
+#!/bin/sh
+kafka_2.12-0.10.2.1/bin/kafka-server-start.sh kafka_2.12-0.10.2.1/config/server.properties &
+```
+
+Остановка происходит в обратной последовательности. 
+Сначала комбинацией control-C или `kill` процесса останавливаем Kafka брокера, после ZK. 
+
+### Шаг 3: Создаём необходимые топики для приложения
+
+Нужен один топик fast-messages, создать которого можно скриптом create_topic.sh, 
+где в качестве первого аргумента использует имя топика:
+
+```
+$ create_topic.sh fast-messages
+```
+Скрипт создаёт простейший топик с одним разделом и репликой.
+
+```
+#!/bin/sh
+kafka_2.12-0.10.2.1/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic $1 &
+```
+Впоследствии можем сменить параметры используя срипты из дистрибутива Kafka или change_topic_partitions.sh для увеличения числа разделов.  
+Топики могут автоматически создаваться и из приложения, но это считается опасным подходом, так как имена топиков имеют огранияения. 
+
+Список топиков можно посмотреть скриптом list_topics.sh.
+
+```
+$ list-topics.sh
 fast-messages
 summary-markers
 ```
-Note that you will see log messages from the Kafka process when you
-run Kafka commands. You can switch to a different window if these are
-distracting.
 
-The broker can be configured to auto-create new topics as they are mentioned, but that is often considered a bit 
-dangerous because mis-spelling a topic name doesn't cause a failure.
+На этом этапе мы можем быть уверены что на локальной машине Kafka брокер успешно запустился.  
 
-## Now for the real fun
-At this point, you should have a working Kafka broker running on your
-machine. The next steps are to compile the example programs and play
-around with the way that they work.
 
 ### Step 4: Compile and package up the example programs
 Go back to the directory where you have the example programs and
