@@ -1,4 +1,4 @@
-# Пример приложения для обмена сообщениями через Apache Kafka в режиме единственного брокера 
+## Пример приложения для обмена сообщениями через Apache Kafka в режиме единственного брокера 
 
 Простой пример обмегна сообщениями по схеме поставщик-потребитель. 
 Используется Kafka API начиная с версии 0.9.0.
@@ -61,89 +61,75 @@ summary-markers
 
 На этом этапе мы можем быть уверены что на локальной машине Kafka брокер успешно запустился.  
 
+### Шаг 4: Собираем тестовй пример
+Можно сделать командой из Maven
 
-### Step 4: Compile and package up the example programs
-Go back to the directory where you have the example programs and
-compile and build the example programs.
 ```
-$ cd ..
 $ mvn package
 ...
 ```
+В результате должны получить единственный исполняемый jar файл `target/kafka-mgd-full.jar`
+включающий в себя все зависимости.
 
-For convenience, the example programs project is set up so that the
-maven `package` target produces a single executable,
-`target/kafka-example`, that includes all of the example programs and
-dependencies.
+Следует отметить что настройки для работы поставщика и потребителя хранятся в каталоге `resources`.
 
-### Step 5: Run the example producer
-
-The producer will send a large number of messages to `fast-messages`
-along with occasional messages to `summary-markers`. Since there isn't
-any consumer running yet, nobody will receive the messages. 
+### Шаг 5: Запускаем пример в режиме поставщика данных
+Поставщик будет отправлять сообщения в топик `fast-messages`.
 
 ```
 $ target/kafka-example producer
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
 Sent msg number 0
-Sent msg number 1000
+Sent msg number 1
+Sent msg number 2
 ...
-Sent msg number 998000
-Sent msg number 999000
+Sent msg number 997
+Sent msg number 998
+Sent msg number 999
 ```
-### Step 6: Start the example consumer
-Running the consumer will not actually cause any messages to be
-processed. The reason is that the first time that the consumer is run,
-this will be the first time that the Kafka broker has ever seen the
-consumer group that the consumer is using. That means that the
-consumer group will be created and the default behavior is to position
-newly created consumer groups at the end of all existing data.
+
+### Шаг 6: Запускаем пример в режиме поребителя данных 
+При запуске потребителя на позицию с которой забираются записи из раздела влияют несколько параметров.
+Параметр group.id определяет группу потребителей в разрезе котоой хранятся смещений записей в разделе топика. 
+Смещение с которого начинается чтение при старте потребителя определяется параметром `auto.offset.reset`.
+Оно может принимать несколько значений:
+
+- earliest. Смещение с начала очереди или с последнего смещения после предыдущей остановки.
+- latest. Получение данных начинается только новых с момента запуска.
+- none. Выбрасывается исключение если группа потребителей не установила смещение, например, не производила чтение из топика.
+- anything else. Выбрасывает исключение в любом случае. 
+
+Так же на поведение потребителя влияют настройки буферов при фетче из раздела топика а так же само количество топиков.
+Если топиков меньше чем потоков в потребителя, то лишние потоки будут простаивать.
+
 ```
 $ target/kafka-example consumer
 SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
 SLF4J: Defaulting to no-operation (NOP) logger implementation
 SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
-```
-After running the consumer once, however, if we run the producer again
-and then run the consumer *again*, we will see the consumer pick up
-and start processing messages shortly after it starts.
-
-
-```
-$ target/kafka-example consumer
-SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
-SLF4J: Defaulting to no-operation (NOP) logger implementation
-SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
-Got 31003 records after 0 timeouts
-1 messages received in period, latency(min, max, avg, 99%) = 20352, 20479, 20416.0, 20479 (ms)
-1 messages received overall, latency(min, max, avg, 99%) = 20352, 20479, 20416.0, 20479 (ms)
-1000 messages received in period, latency(min, max, avg, 99%) = 19840, 20095, 19968.3, 20095 (ms)
-1001 messages received overall, latency(min, max, avg, 99%) = 19840, 20479, 19968.7, 20095 (ms)
+Got 500 records after 0 timeouts
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 0, time: 14.11.2017 19:20:50 
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 1, time: 14.11.2017 19:20:50 
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 2, time: 14.11.2017 19:20:50 
 ...
-1000 messages received in period, latency(min, max, avg, 99%) = 12032, 12159, 12119.4, 12159 (ms)
-998001 messages received overall, latency(min, max, avg, 99%) = 12032, 20479, 15073.9, 19583 (ms)
-1000 messages received in period, latency(min, max, avg, 99%) = 12032, 12095, 12064.0, 12095 (ms)
-999001 messages received overall, latency(min, max, avg, 99%) = 12032, 20479, 15070.9, 19583 (ms)
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 496, time: 14.11.2017 19:20:50 
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 497, time: 14.11.2017 19:20:50 
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 498, time: 14.11.2017 19:20:50 
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 499, time: 14.11.2017 19:20:50 
+Got 500 records after 0 timeouts
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 500, time: 14.11.2017 19:20:50 
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 501, time: 14.11.2017 19:20:50 
+...
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 996, time: 14.11.2017 19:20:50 
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 997, time: 14.11.2017 19:20:50 
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 998, time: 14.11.2017 19:20:50 
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 999, time: 14.11.2017 19:20:50 
+
 ```
-Note that there is a significant latency listed in the summaries for
-the messsage batches. This is because the consumer wasn't running when
-the message were sent to Kafka and thus it is only getting them much
-later, long after they were sent.
-
-The consumer should, however, gnaw its way through the backlog pretty
-quickly, however and the per batch latency should be shorter by the
-end of the run than at the beginning. If the producer is still running
-by the time the consumer catches up, the latencies will probably drop
-into the single digit millisecond range.
-
-### Step 7: Send more messages
-In a separate window, run the producer again without stopping the
-consumer. Note how the messages are displayed almost instantly by the
-consumer and the latencies measured by the consumer are now quite
-small, especially compared to the first time the consumer was run.
-
-This isn't a real production-scale benchmark, but it does show that
-two processes can send and receive messages at a pretty high rate and
-with pretty low latency.
+Далее потребитель будет ожидать получение новых сообщений из раздела топика. 
+Не отключая потребителя мы можем снова запустить поставщика с новыми сообщения и они дойдут до потребителя.
 
 ## Fun Step: Mess with the consumer
 
