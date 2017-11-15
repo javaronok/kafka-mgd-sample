@@ -131,54 +131,12 @@ Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 999, time: 14.
 Далее потребитель будет ожидать получение новых сообщений из раздела топика. 
 Не отключая потребителя мы можем снова запустить поставщика с новыми сообщения и они дойдут до потребителя.
 
-## Fun Step: Mess with the consumer
+Отключив потребителя брокер Kafka не сразу сможет понять что потребителя раздела больше нет, поэтому при повторном запуске можно наблюдать 
+10-ти секундную задержку перед возобновлением получения данных из очереди. 
 
-While the producer is producing messages (you may want to put it in a
-loop so it keeps going) and the consumer is eating them, try killing
-and restarting the consumer. The new consumer will wait for about 10
-seconds before Kafka assigns it to the partitions that the killed
-consumer was handling. Once the consumer gets cooking, however, the
-latency on the records it is processing should drop quickly to the
-steady state rate of a few milliseconds. You can have similar effect
-by using control-Z to pause the consumer for a few seconds but if you
-do that, the consumer should restart processing immediately as soon as
-you let it continue. The way that this works is if you pause for a
-short time, the consumer still has the topic partition assigned to it
-by the Kafka broker, so it can start right back up. On the other hand,
-if you pause for more than about 10 seconds, the broker will decide
-the consumer has died and that there is nobody available to handle the
-partitions in the topic for that consumer group. As soon as the
-consumer program comes back, however, it will reclaim ownership and
-continue reading data.
-
-## Remaining Mysteries
-If you change the consumer properties, particular the buffer sizes
-near the end of properties file, you may notice that the
-consumer can easily get into a state where it has about 5 seconds of
-timeouts during which no data comes from Kafka and then a full
-bufferful arrives. Once in this mode, the consumer tends to not
-recover to normal processing. It isn't clear what is going on, but
-setting the buffer sizes large enough can avoid the problem.
-
-## Cleaning Up
-When you are done playing, stop Kafka and Zookeeper and delete the
-data directories they were using from /tmp
+## Очистка
+После выполнения работы и остановки брокера Kafka и Zookeeper очистка логов выполняется простым удалением настроенных каталогов.
 
 ```
-$ fg
-bin/kafka-server-start.sh config/server.properties
-^C[2016-02-06 18:06:56,683] INFO [Kafka Server 0], shutting down (kafka.server.KafkaServer)
-...
-[2016-02-06 18:06:58,977] INFO EventThread shut down (org.apache.zookeeper.ClientCnxn)
-[2016-02-06 18:06:58,978] INFO Closed socket connection for client /fe80:0:0:0:0:0:0:1%1:65170 which had sessionid 0x152b958c3300000 (org.apache.zookeeper.server.NIOServerCnxn)
-[2016-02-06 18:06:58,979] INFO [Kafka Server 0], shut down completed (kafka.server.KafkaServer)
-$ fg
-bin/zookeeper-server-start.sh config/zookeeper.properties
-^C
 $ rm -rf /tmp/zookeeper/version-2/log.1  ; rm -rf /tmp/kafka-logs/
-$
 ```
-
-## Credits
-Note that this example was derived in part from the documentation provided by the Apache Kafka project. We have 
-added short, realistic sample programs that illustrate how real programs are written using Kafka.  
