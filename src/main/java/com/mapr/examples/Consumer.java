@@ -6,6 +6,9 @@ import com.google.common.io.Resources;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,13 +22,35 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * This program reads messages from two topics. Messages on "fast-messages" are analyzed
- * to estimate latency (assuming clock synchronization between producer and consumer).
- * <p/>
- * Whenever a message is received on "slow-messages", the stats are dumped.
+ * This program reads messages from two topics. Messages on "fast-messages"
  */
 public class Consumer {
+    @Option(name = "-brokers", usage = "Kafka brokers list (delimiter ',')")
+    private String brokers = "localhost:9092";
+
     public static void main(String[] args) throws IOException {
+        Consumer consumer = new Consumer();
+        CmdLineParser parser = new CmdLineParser(consumer);
+
+        try {
+            parser.parseArgument(args);
+        } catch (CmdLineException ce) {
+            System.err.println(ce.getMessage());
+            System.err.println();
+            System.err.println(" Options are:");
+            parser.printUsage(System.err); // print the list of available options
+            System.err.println();
+            System.exit(0);
+        }
+
+        consumer.run();
+    }
+
+    private void run() throws IOException {
+        run(brokers);
+    }
+
+    private void run(String brokers) throws IOException {
         // set up house-keeping
         final ObjectMapper mapper = new ObjectMapper();
 
@@ -35,7 +60,7 @@ public class Consumer {
             executor.submit((Runnable) () -> {
                 // and the consumer
                 try {
-                    consume(mapper);
+                    consume(mapper, brokers);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -49,13 +74,16 @@ public class Consumer {
         }
     }
 
-    public static void consume(ObjectMapper mapper) throws IOException {
+    private void consume(ObjectMapper mapper, String brokers) throws IOException {
         KafkaConsumer<String, String> consumer;
         try (InputStream props = Resources.getResource("consumer.props").openStream()) {
             Properties properties = new Properties();
             properties.load(props);
             if (properties.getProperty("group.id") == null) {
                 properties.setProperty("group.id", "group-" + new Random().nextInt(100000));
+            }
+            if (brokers != null && !brokers.isEmpty()) {
+                properties.put("bootstrap.servers", brokers);
             }
             consumer = new KafkaConsumer<>(properties);
         }
