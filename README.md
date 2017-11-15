@@ -140,3 +140,31 @@ Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 999, time: 14.
 ```
 $ rm -rf /tmp/zookeeper/version-2/log.1  ; rm -rf /tmp/kafka-logs/
 ```
+
+###Запуск с помощью Docker в режиме единственного брокера.
+Запускаем связку zk, kafka брокера, поставщика и потребителя с помощью docker-compose
+
+```
+$ docker-compose -f docker/docker-singlebroker-compose.yml up -d
+Starting docker_zookeeper_1 ... 
+Starting docker_zookeeper_1 ... done
+Creating docker_kafka_1 ... 
+Creating docker_kafka_1 ... done
+Creating kafka-producer ... 
+Creating kafka-producer ... done
+Creating kafka-consumer ... 
+Creating kafka-consumer ... done
+$
+```
+Состояние запуска контейнеров можно проверить и выглядить должно примерно так:
+
+```
+$ docker ps -a
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                          PORTS                                        NAMES
+b943e71c3ed4        kafka-consumer                "java -Xmx200m -ja..."   3 minutes ago       Up 3 minutes                                                                 kafka-consumer
+f160745ce05e        kafka-producer                "java -Xmx200m -ja..."   3 minutes ago       Restarting (0) 49 seconds ago                                                kafka-producer
+42dc8572b989        wurstmeister/kafka:0.10.2.0   "start-kafka.sh"         3 minutes ago       Up 3 minutes                    0.0.0.0:9092->9092/tcp                       docker_kafka_1
+213f56df1de6        zookeeper:3.4.10              "/docker-entrypoin..."   4 minutes ago       Up 3 minutes                    2888/tcp, 0.0.0.0:2181->2181/tcp, 3888/tcp   docker_zookeeper_1
+```
+
+Командами `docker logs kafka-producer` и `docker logs kafka-consumer` можно убедиться что сообщения были переданы от поставщика и получены потребителем.
