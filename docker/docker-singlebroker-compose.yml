@@ -1,13 +1,15 @@
 version: "3"
 services:
   zookeeper:
-    image: zookeeper:3.4.10
+    image: wurstmeister/zookeeper
     ports:
       - "2181:2181"
   kafka:
     image: wurstmeister/kafka:0.10.2.0
     restart: unless-stopped
     depends_on:
+      - zookeeper
+    links:
       - zookeeper
     ports:
       - "9092:9092"
@@ -16,7 +18,9 @@ services:
       KAFKA_CREATE_TOPICS: fast-messages:1:1
       #HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
       #KAFKA_ADVERTISED_HOST_NAME: 10.0.2.15
-      KAFKA_ADVERTISED_HOST_NAME: localhost
+      #KAFKA_ADVERTISED_HOST_NAME: localhost
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ADVERTISED_PORT: 9092
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -27,17 +31,27 @@ services:
     build:
       context: ..
       dockerfile: ./docker/producer/Dockerfile
+    links:
+      - kafka:kafka
+    tty: true
     depends_on:
       - kafka
-    network_mode: "host"
+    environment:
+      BROKERS: kafka:9092
+    #network_mode: "host"
 
   consumer:
     image: kafka-consumer
     container_name: kafka-consumer
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: ./docker/consumer/Dockerfile
-    restart: unless-stopped
+    links:
+      - kafka:kafka
+    tty: true
     depends_on:
       - producer
-    network_mode: "host"
+    environment:
+      BROKERS: kafka:9092
+    #network_mode: "host"
