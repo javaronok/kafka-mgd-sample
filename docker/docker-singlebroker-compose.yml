@@ -37,7 +37,7 @@ services:
     depends_on:
       - kafka
     environment:
-      BROKERS: kafka:9092
+      BROKER_LIST: kafka:9092
     #network_mode: "host"
 
   consumer:
@@ -53,5 +53,5 @@ services:
     depends_on:
       - producer
     environment:
-      BROKERS: kafka:9092
+      BROKER_LIST: kafka:9092
     #network_mode: "host"
