@@ -8,7 +8,7 @@ if [[ -z "$THREADS" ]]; then
     export THREADS=1
 fi
 
-sleep 10
+sleep 60
 
 echo "BROKER_LIST: " ${BROKER_LIST}
 echo "THREADS: " ${THREADS}
