@@ -28,6 +28,9 @@ public class Consumer {
     @Option(name = "-brokers", usage = "Kafka brokers list (delimiter ',')")
     private String brokers = "localhost:9092";
 
+    @Option(name = "-threads", usage = "Kafka consumer threads number")
+    private Integer threads = 1;
+
     public static void main(String[] args) throws IOException {
         Consumer consumer = new Consumer();
         CmdLineParser parser = new CmdLineParser(consumer);
@@ -47,24 +50,15 @@ public class Consumer {
     }
 
     private void run() throws IOException {
-        run(brokers);
+        run(brokers, threads);
     }
 
-    private void run(String brokers) throws IOException {
-        // set up house-keeping
-        final ObjectMapper mapper = new ObjectMapper();
+    private void run(String brokers, Integer threads) throws IOException {
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
 
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-
-        for (int i = 0; i < 1; i++) {
-            executor.submit((Runnable) () -> {
-                // and the consumer
-                try {
-                    consume(mapper, brokers);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
+        for (int i = 0; i < threads; i++) {
+            Runnable consumer = createConsumer(brokers);
+            executor.submit(consumer);
         }
         executor.shutdown();
 
@@ -72,6 +66,19 @@ public class Consumer {
             executor.awaitTermination(30, TimeUnit.MINUTES);
         } catch (InterruptedException e) {
         }
+    }
+
+    private Runnable createConsumer(String brokers) {
+        // set up house-keeping
+        final ObjectMapper mapper = new ObjectMapper();
+        return () -> {
+            // and the consumer
+            try {
+                consume(mapper, brokers);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        };
     }
 
     private void consume(ObjectMapper mapper, String brokers) throws IOException {
