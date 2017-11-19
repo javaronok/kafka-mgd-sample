@@ -141,7 +141,7 @@ Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 999, time: 14.
 $ rm -rf /tmp/zookeeper/version-2/log.1  ; rm -rf /tmp/kafka-logs/
 ```
 
-###Запуск с помощью Docker в режиме единственного брокера.
+##Запуск с помощью Docker в режиме единственного брокера.
 Запускаем связку zk, kafka брокера, поставщика и потребителя с помощью docker-compose:
 
 ```
@@ -169,7 +169,7 @@ f160745ce05e        kafka-producer                "java -Xmx200m -ja..."   3 min
 
 Командами `docker logs kafka-producer` и `docker logs kafka-consumer` можно убедиться что сообщения были переданы от поставщика и получены потребителем.
 
-###Запуск с помощью Docker в режиме отказоустойчивого кластера с множеством брокеров.
+##Запуск с помощью Docker в режиме отказоустойчивого кластера с множеством брокеров.
 Запускаем связку zk, kafka брокеры, поставщика и потребителя с помощью docker-compose:
 
 ```
