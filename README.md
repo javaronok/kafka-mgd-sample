@@ -142,7 +142,7 @@ $ rm -rf /tmp/zookeeper/version-2/log.1  ; rm -rf /tmp/kafka-logs/
 ```
 
 ###Запуск с помощью Docker в режиме единственного брокера.
-Запускаем связку zk, kafka брокера, поставщика и потребителя с помощью docker-compose
+Запускаем связку zk, kafka брокера, поставщика и потребителя с помощью docker-compose:
 
 ```
 $ docker-compose -f docker/docker-singlebroker-compose.yml up -d
@@ -168,3 +168,62 @@ f160745ce05e        kafka-producer                "java -Xmx200m -ja..."   3 min
 ```
 
 Командами `docker logs kafka-producer` и `docker logs kafka-consumer` можно убедиться что сообщения были переданы от поставщика и получены потребителем.
+
+###Запуск с помощью Docker в режиме отказоустойчивого кластера с множеством брокеров.
+Запускаем связку zk, kafka брокеры, поставщика и потребителя с помощью docker-compose:
+
+```
+$ docker-compose -f docker/docker-multibroker-compose.yml up -d
+Starting docker_zookeeper_1 ... 
+Starting docker_zookeeper_1 ... done
+Starting docker_kafka1_1 ... 
+Starting docker_kafka2_1 ... 
+Starting docker_kafka3_1 ... 
+Starting docker_kafka1_1
+Starting docker_kafka2_1
+Starting docker_kafka3_1 ... done
+Starting kafka-producer ... 
+Starting kafka-producer ... done
+Starting kafka-consumer ... 
+Starting kafka-consumer ... done
+$
+```
+
+Убедимся что все узлы кластера стартовали успешно: 
+
+```
+$ docker-compose -f docker/docker-multibroker-compose.yml ps
+       Name                     Command               State                     Ports                    
+--------------------------------------------------------------------------------------------------------
+docker_kafka1_1      start-kafka.sh                   Up      0.0.0.0:9191->9092/tcp                     
+docker_kafka2_1      start-kafka.sh                   Up      0.0.0.0:9192->9092/tcp                     
+docker_kafka3_1      start-kafka.sh                   Up      0.0.0.0:9193->9092/tcp                     
+docker_zookeeper_1   /docker-entrypoint.sh zkSe ...   Up      0.0.0.0:2181->2181/tcp, 2888/tcp, 3888/tcp 
+kafka-consumer       /start.sh                        Up                                                 
+kafka-producer       /run.sh                          Up                                                 
+$
+```
+
+Выполним команды `docker attach kafka-producer`
+
+```
+$ docker attach kafka-producer
+...
+Sent msg number 5587
+Sent msg number 5588
+Sent msg number 5589
+
+```
+ и `docker attach kafka-consumer` и убедимся что сообщения отправляются и доставляются.
+
+```
+$ docker attach kafka-consumer
+Got 1 records after 0 timeouts
+Thread: pool-1-thread-3, Topic:fast-messages, partition:1, Value: 7862, time: 19.11.2017 12:23:42 
+Got 1 records after 0 timeouts
+Thread: pool-1-thread-3, Topic:fast-messages, partition:1, Value: 7863, time: 19.11.2017 12:23:42 
+Got 1 records after 0 timeouts
+Thread: pool-1-thread-2, Topic:fast-messages, partition:0, Value: 7864, time: 19.11.2017 12:23:42 
+
+```
+
