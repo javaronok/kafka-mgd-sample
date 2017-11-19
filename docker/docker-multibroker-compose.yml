@@ -85,7 +85,7 @@ services:
     environment:
       BROKER_LIST: 10.0.2.15:9191,10.0.2.15:9192,10.0.2.15:9193
       TOPIC: fast-messages
-      PARTITIONS: 2
+      PARTITIONS: 3
       REPLICATION_FACTOR: 3
 
   consumer:

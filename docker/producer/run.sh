@@ -1,6 +1,6 @@
 #!/bin/bash
 
-/create_topic.sh
+/kafka/create_topic.sh
 
 if [[ -z "$BROKER_LIST" ]]; then
     export BROKER_LIST=localhost:9092
