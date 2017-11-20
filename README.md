@@ -1,4 +1,5 @@
-## Пример приложения для обмена сообщениями через Apache Kafka в режиме единственного брокера 
+Пример приложения для обмена сообщениями через Apache Kafka в режиме единственного брокера 
+=============
 
 Простой пример обмегна сообщениями по схеме поставщик-потребитель. 
 Используется Kafka API начиная с версии 0.9.0.
@@ -6,7 +7,8 @@
 Для запуска необходимо выполнить несколько шагов: скачать, установить Kafka, 
 запустить и содать необходимые очереди (топики)     
 
-### Шаг 1: Скачать Apache Kafka
+Шаг 1: Скачать Apache Kafka
+------------
 
 На текущий момент крайняя релизная версия kafka_2.12-0.11.0.1. 
 Далее следует распаковать tar архив.
@@ -15,7 +17,10 @@
 $ tar -xzf kafka_2.12-0.11.0.1.tgz
 $ cd kafka_2.12-0.11.0.1
 ```
-### Шаг 2: Запуск сервера
+
+Шаг 2: Запуск сервера
+------------
+
 Запустим сервер ZooKeeper ранее подготовленным скриптом run_zookeeper.sh. Скрипт запускает ZK с настройками поумолчанию. 
 Kafka использует единственный узел для ZK. 
 
@@ -34,7 +39,8 @@ kafka_2.12-0.10.2.1/bin/kafka-server-start.sh kafka_2.12-0.10.2.1/config/server.
 Остановка происходит в обратной последовательности. 
 Сначала комбинацией control-C или `kill` процесса останавливаем Kafka брокера, после ZK. 
 
-### Шаг 3: Создаём необходимые топики для приложения
+Шаг 3: Создаём необходимые топики для приложения
+------------
 
 Нужен один топик fast-messages, создать которого можно скриптом create_topic.sh, 
 где в качестве первого аргумента использует имя топика:
@@ -61,7 +67,9 @@ summary-markers
 
 На этом этапе мы можем быть уверены что на локальной машине Kafka брокер успешно запустился.  
 
-### Шаг 4: Собираем тестовй пример
+Шаг 4: Собираем тестовй пример
+------------
+
 Можно сделать командой из Maven
 
 ```
@@ -73,7 +81,9 @@ $ mvn package
 
 Следует отметить что настройки для работы поставщика и потребителя хранятся в каталоге `resources`.
 
-### Шаг 5: Запускаем пример в режиме поставщика данных
+Шаг 5: Запускаем пример в режиме поставщика данных
+------------
+
 Поставщик будет отправлять сообщения в топик `fast-messages`.
 
 ```
@@ -90,7 +100,9 @@ Sent msg number 998
 Sent msg number 999
 ```
 
-### Шаг 6: Запускаем пример в режиме поребителя данных 
+Шаг 6: Запускаем пример в режиме поребителя данных
+------------
+ 
 При запуске потребителя на позицию с которой забираются записи из раздела влияют несколько параметров.
 Параметр group.id определяет группу потребителей в разрезе котоой хранятся смещений записей в разделе топика. 
 Смещение с которого начинается чтение при старте потребителя определяется параметром `auto.offset.reset`.
@@ -134,14 +146,18 @@ Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 999, time: 14.
 Отключив потребителя брокер Kafka не сразу сможет понять что потребителя раздела больше нет, поэтому при повторном запуске можно наблюдать 
 10-ти секундную задержку перед возобновлением получения данных из очереди. 
 
-## Очистка
+Очистка
+------------
+
 После выполнения работы и остановки брокера Kafka и Zookeeper очистка логов выполняется простым удалением настроенных каталогов.
 
 ```
 $ rm -rf /tmp/zookeeper/version-2/log.1  ; rm -rf /tmp/kafka-logs/
 ```
 
-##Запуск с помощью Docker в режиме единственного брокера.
+Запуск с помощью Docker в режиме единственного брокера.
+------------
+
 Запускаем связку zk, kafka брокера, поставщика и потребителя с помощью docker-compose:
 
 ```
@@ -169,7 +185,10 @@ f160745ce05e        kafka-producer                "java -Xmx200m -ja..."   3 min
 
 Командами `docker logs kafka-producer` и `docker logs kafka-consumer` можно убедиться что сообщения были переданы от поставщика и получены потребителем.
 
-##Запуск с помощью Docker в режиме отказоустойчивого кластера с множеством брокеров.
+
+Запуск с помощью Docker в режиме отказоустойчивого кластера с множеством брокеров.
+------------
+
 Запускаем связку zk, kafka брокеры, поставщика и потребителя с помощью docker-compose:
 
 ```
@@ -226,4 +245,86 @@ Got 1 records after 0 timeouts
 Thread: pool-1-thread-2, Topic:fast-messages, partition:0, Value: 7864, time: 19.11.2017 12:23:42 
 
 ```
+Выполнив команду на узле можно запросить у Zookeeper информацию по топику:  
+
+```
+$ docker exec -it kafka-producer bash
+root@66b999d3a3b5:/# kafka/describe_topic.sh fast-messages
+root@66b999d3a3b5:/# Topic:fast-messages	PartitionCount:3	ReplicationFactor:3	Configs:
+	Topic: fast-messages	Partition: 0	Leader: 3	Replicas: 3,1,2	Isr: 3,1,2
+	Topic: fast-messages	Partition: 1	Leader: 1	Replicas: 1,2,3	Isr: 1,2,3
+	Topic: fast-messages	Partition: 2	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1
+```
+Данные означают что у топика `fast-messages` есть 3 раздела, их лидеры узлы, 3,2,1 соответственно.
+В нашем случае реплики разделов хранятся у брокеров 3,1,2, 1,2,3 и 2,3,1 и все они синхронизированы (Isr — in-sync replica), то есть все резервные копии на месте.
+
+Более наглядную картину можно получить с помощью инструкмента kafka-manager от компании Yahoo! настроив его на ZK localhost:2181 (https://github.com/yahoo/kafka-manager.git)
+
+
+![consumers](img/consumers.png)
+
+***
+
+![partitions](img/partitions.png)
+
+***
+
+Попробуем симитировать отказ узлов с помощью остановки их контейнеров.
+Остановим контейнер `docker stop docker_kafka1_1`
+
+```
+       Name                     Command                State                       Ports                    
+-----------------------------------------------------------------------------------------------------------
+docker_kafka1_1      start-kafka.sh                   Exit 143                                              
+docker_kafka2_1      start-kafka.sh                   Up         0.0.0.0:9192->9092/tcp                     
+docker_kafka3_1      start-kafka.sh                   Up         0.0.0.0:9193->9092/tcp                     
+docker_zookeeper_1   /docker-entrypoint.sh zkSe ...   Up         0.0.0.0:2181->2181/tcp, 2888/tcp, 3888/tcp 
+kafka-consumer       /start.sh                        Up                                                    
+kafka-producer       /run.sh                          Up                      
+$
+```
+Как видно, узел остановлен. Потребитель и поставщик данных работаею без сбоев продолжая обмениватсья сообщениями, а вот статитика топика подверглись изменниям:
+
+```
+$ docker exec -it kafka-producer bash
+root@66b999d3a3b5:/# kafka/describe_topic.sh fast-messages
+root@66b999d3a3b5:/# Topic:fast-messages	PartitionCount:3	ReplicationFactor:3	Configs:
+	Topic: fast-messages	Partition: 0	Leader: 3	Replicas: 3,1,2	Isr: 3,2
+	Topic: fast-messages	Partition: 1	Leader: 2	Replicas: 1,2,3	Isr: 2,3
+	Topic: fast-messages	Partition: 2	Leader: 2	Replicas: 2,3,1	Isr: 2,3
+
+```
+Лидер для 1-го раздела сменился на 2ой узел, реплика пропала с первого узла.
+Пробуем остановить 2ой узел.
+
+```
+root@66b999d3a3b5:/# Topic:fast-messages	PartitionCount:3	ReplicationFactor:3	Configs:
+	Topic: fast-messages	Partition: 0	Leader: 3	Replicas: 3,1,2	Isr: 3
+	Topic: fast-messages	Partition: 1	Leader: 3	Replicas: 1,2,3	Isr: 3
+	Topic: fast-messages	Partition: 2	Leader: 3	Replicas: 2,3,1	Isr: 3
+```
+Видим ситуацию когда для всех 3-ёх разделов лидером назначился 3-ий узел, и реплики всех разделов хранятся там же, на 3-ем брокере.
+
+![replication](img/replication.png)
+
+***
+
+Пробуем восстановить потерянные узлы.
+
+```
+$ docker start docker_kafka1_1 docker_kafka2_1
+docker_kafka1_1 
+docker_kafka2_1
+$
+```
+Видно что через какое то время релпики восстановились, лидеры перераспределились:
+
+```
+root@66b999d3a3b5:/# Topic:fast-messages	PartitionCount:3	ReplicationFactor:3	Configs:
+	Topic: fast-messages	Partition: 0	Leader: 3	Replicas: 3,1,2	Isr: 3,1,2
+	Topic: fast-messages	Partition: 1	Leader: 1	Replicas: 1,2,3	Isr: 3,1,2
+	Topic: fast-messages	Partition: 2	Leader: 2	Replicas: 2,3,1	Isr: 3,1,2
+```
+Кластер вернулся в сбалансированное состояние.
+
 
