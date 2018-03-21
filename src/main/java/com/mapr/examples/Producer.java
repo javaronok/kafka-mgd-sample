@@ -65,14 +65,14 @@ public class Producer {
             for (int i = 0; i < amount; i++) {
                 // send lots of messages
                 Date t = new Date();
-                producer.send(new ProducerRecord<String, String>(
-                        "fast-messages", String.valueOf(i),
+                producer.send(new ProducerRecord<>("fast-messages", String.valueOf(i),
                         String.format("{\"type\":\"test\", \"t\":%d, \"k\":%d}", t.getTime(), i)));
                 System.out.println("Sent msg number " + i);
                 if (delay > 0) {
                     Thread.sleep(delay);
                 }
             }
+            producer.send(new ProducerRecord<>("summary-stat", "count", String.valueOf(amount)));
         } catch (Throwable throwable) {
             System.out.printf("%s", throwable.getStackTrace());
         } finally {

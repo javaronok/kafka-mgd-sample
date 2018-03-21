@@ -20,6 +20,7 @@ import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This program reads messages from two topics. Messages on "fast-messages"
@@ -30,6 +31,8 @@ public class Consumer {
 
     @Option(name = "-threads", usage = "Kafka consumer threads number")
     private Integer threads = 1;
+
+    private Statistics statistics = new Statistics();
 
     public static void main(String[] args) throws IOException {
         Consumer consumer = new Consumer();
@@ -75,8 +78,8 @@ public class Consumer {
             // and the consumer
             try {
                 consume(mapper, brokers);
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (Exception e) {
+                System.out.printf("%s", e);
             }
         };
     }
@@ -94,7 +97,7 @@ public class Consumer {
             }
             consumer = new KafkaConsumer<>(properties);
         }
-        consumer.subscribe(Arrays.asList("fast-messages", "summary-markers"));
+        consumer.subscribe(Arrays.asList("fast-messages", "summary-stat"));
         //consumer.assign(Collections.singleton(new TopicPartition("fast-messages", 1)));
         int timeouts = 0;
         //noinspection InfiniteLoopStatement
@@ -127,12 +130,46 @@ public class Consumer {
                             default:
                                 throw new IllegalArgumentException("Illegal message type: " + msg.get("type"));
                         }
+                        this.statistics.incDelivered();
+                        checkFullDelivered();
+                        break;
+                    case "summary-stat":
+                        long amount = Long.valueOf(record.value());
+                        this.statistics.setAmount(amount);
+                        System.out.println("Statistics: " + record.key() + "=" + record.value());
+                        checkFullDelivered();
                         break;
                     default:
                         throw new IllegalStateException("Shouldn't be possible to get message on topic " + record.topic());
                 }
             }
             consumer.commitSync();
+        }
+    }
+
+    private void checkFullDelivered() {
+        if (this.statistics.checkStat())
+            System.out.println("Full delivered " + this.statistics.getAmount() + " messages");
+    }
+
+    class Statistics {
+        private Long amount;
+        private AtomicLong delivered = new AtomicLong(0);
+
+        public Long getAmount() {
+            return amount;
+        }
+
+        public void setAmount(Long amount) {
+            this.amount = amount;
+        }
+
+        public void incDelivered() {
+            this.delivered.getAndIncrement();
+        }
+
+        public boolean checkStat() {
+            return amount != null && amount > 0 && amount.equals(delivered.get());
         }
     }
 }
