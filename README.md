@@ -62,7 +62,7 @@ kafka_2.12-0.10.2.1/bin/kafka-topics.sh --create --zookeeper localhost:2181 --re
 ```
 $ list-topics.sh
 fast-messages
-summary-markers
+summary-stat
 ```
 
 На этом этапе мы можем быть уверены что на локальной машине Kafka брокер успешно запустился.  
@@ -100,7 +100,7 @@ Sent msg number 998
 Sent msg number 999
 ```
 
-Шаг 6: Запускаем пример в режиме поребителя данных
+Шаг 6: Запускаем пример в режиме потребителя данных
 ------------
  
 При запуске потребителя на позицию с которой забираются записи из раздела влияют несколько параметров.
@@ -137,11 +137,14 @@ Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 501, time: 14.
 Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 996, time: 14.11.2017 19:20:50 
 Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 997, time: 14.11.2017 19:20:50 
 Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 998, time: 14.11.2017 19:20:50 
-Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 999, time: 14.11.2017 19:20:50 
+Thread: pool-1-thread-1, Topic:fast-messages, partition:0, Value: 999, time: 14.11.2017 19:20:50
+Statistics: count=1000
+Full delivered 1000 messages
 
 ```
 Далее потребитель будет ожидать получение новых сообщений из раздела топика. 
 Не отключая потребителя, мы можем снова запустить поставщика с новыми сообщения и они дойдут до потребителя.
+Запись статистики переданная через топик `summary-stat` показывает что все записи доставлены.
 
 Отключив потребителя, брокер Kafka не сразу сможет понять что потребителя раздела больше нет, поэтому при повторном запуске можно наблюдать 
 10-ти секундную задержку перед возобновлением получения данных из очереди. 
