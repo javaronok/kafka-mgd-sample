@@ -6,7 +6,7 @@ services:
       - "2181:2181"
 
   kafka1:
-    image: wurstmeister/kafka:0.10.2.0
+    image: wurstmeister/kafka:1.1.0
     restart: unless-stopped
     depends_on:
       - zookeeper
@@ -18,8 +18,8 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       #KAFKA_CREATE_TOPICS: fast-messages:3:2
-      #HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
-      KAFKA_ADVERTISED_HOST_NAME: 10.0.2.15
+      HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
+      #KAFKA_ADVERTISED_HOST_NAME: 10.0.2.15
       #KAFKA_ADVERTISED_HOST_NAME: localhost
       #KAFKA_ADVERTISED_HOST_NAME: kafka1
       KAFKA_ADVERTISED_PORT: 9191
@@ -27,7 +27,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   kafka2:
-    image: wurstmeister/kafka:0.10.2.0
+    image: wurstmeister/kafka:1.1.0
     restart: unless-stopped
     depends_on:
       - zookeeper
@@ -39,8 +39,8 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       #KAFKA_CREATE_TOPICS: fast-messages:1:1
-      #HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
-      KAFKA_ADVERTISED_HOST_NAME: 10.0.2.15
+      HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
+      #KAFKA_ADVERTISED_HOST_NAME: 10.0.2.15
       #KAFKA_ADVERTISED_HOST_NAME: localhost
       #KAFKA_ADVERTISED_HOST_NAME: kafka2
       KAFKA_ADVERTISED_PORT: 9192
@@ -48,7 +48,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   kafka3:
-    image: wurstmeister/kafka:0.10.2.0
+    image: wurstmeister/kafka:1.1.0
     restart: unless-stopped
     depends_on:
       - zookeeper
@@ -60,8 +60,8 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       #KAFKA_CREATE_TOPICS: fast-messages:1:1
-      #HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
-      KAFKA_ADVERTISED_HOST_NAME: 10.0.2.15
+      HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
+      #KAFKA_ADVERTISED_HOST_NAME: 10.0.2.15
       #KAFKA_ADVERTISED_HOST_NAME: localhost
       #KAFKA_ADVERTISED_HOST_NAME: kafka3
       KAFKA_ADVERTISED_PORT: 9193
@@ -83,7 +83,8 @@ services:
       - kafka2
       - kafka3
     environment:
-      BROKER_LIST: 10.0.2.15:9191,10.0.2.15:9192,10.0.2.15:9193
+      #BROKER_LIST: 10.0.2.15:9191,10.0.2.15:9192,10.0.2.15:9193
+      BROKER_LIST: kafka1:9092,kafka2:9092,kafka3:9092
       TOPIC: fast-messages
       PARTITIONS: 3
       REPLICATION_FACTOR: 3
@@ -99,5 +100,6 @@ services:
     depends_on:
       - producer
     environment:
-      BROKER_LIST: 10.0.2.15:9191,10.0.2.15:9192,10.0.2.15:9193
+      #BROKER_LIST: 10.0.2.15:9191,10.0.2.15:9192,10.0.2.15:9193
+      BROKER_LIST: kafka1:9092,kafka2:9092,kafka3:9092
       THREADS: 3
