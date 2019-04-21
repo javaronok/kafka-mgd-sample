@@ -8,4 +8,4 @@ fi
 
 echo "BROKER_LIST: " ${BROKER_LIST}
 
-java -Xmx200m -jar /app/kafka-mgd-full.jar producer -delay 100 -amount 1000 -brokers ${BROKER_LIST}
+java -Xmx200m -jar /app/kafka-mgd-full.jar producer -delay 1000 -amount 10000 -brokers ${BROKER_LIST}
