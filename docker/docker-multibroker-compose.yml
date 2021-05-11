@@ -6,7 +6,7 @@ services:
       - "2181:2181"
 
   kafka1:
-    image: wurstmeister/kafka:1.1.0
+    image: wurstmeister/kafka:2.12-2.3.1
     restart: unless-stopped
     depends_on:
       - zookeeper
@@ -27,7 +27,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   kafka2:
-    image: wurstmeister/kafka:1.1.0
+    image: wurstmeister/kafka:2.12-2.3.1
     restart: unless-stopped
     depends_on:
       - zookeeper
@@ -48,7 +48,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   kafka3:
-    image: wurstmeister/kafka:1.1.0
+    image: wurstmeister/kafka:2.12-2.3.1
     restart: unless-stopped
     depends_on:
       - zookeeper

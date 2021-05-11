@@ -2,7 +2,7 @@ FROM java:8-jre
 MAINTAINER Dmirtiy Gorchakov <javaronok.gda@gmail.com>
 
 ADD ./target/kafka-mgd-full.jar /app/kafka-mgd-full.jar
-ADD docker/kafka_2.12-1.1.0.tgz /kafka
+ADD docker/kafka_2.12-2.3.1.tgz /kafka
 ADD docker/producer/run.sh /run.sh
 ADD docker/producer/start.sh /start.sh
 ADD docker/producer/create_topic.sh /kafka/create_topic.sh
