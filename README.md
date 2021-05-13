@@ -5,17 +5,17 @@
 Используется Kafka API начиная с версии 0.9.0.
 
 Для запуска необходимо выполнить несколько шагов: скачать, установить Kafka, 
-запустить и содать необходимые очереди (топики)     
+запустить и создать необходимые очереди (топики)     
 
 Шаг 1: Скачать Apache Kafka
 ------------
 
-На текущий момент крайняя релизная версия kafka_2.12-0.11.0.1. 
+На текущий момент крайняя релизная версия kafka_2.12-2.3.1. 
 Далее следует распаковать tar архив.
 
 ```
-$ tar -xzf kafka_2.12-0.11.0.1.tgz
-$ cd kafka_2.12-0.11.0.1
+$ tar -xzf kafka_2.12-2.3.1.tgz
+$ cd kafka_2.12-2.3.1
 ```
 
 Шаг 2: Запуск сервера
@@ -26,14 +26,14 @@ Kafka использует единственный узел для ZK.
 
 ```
 #!/bin/sh
-kafka_2.12-0.10.2.1/bin/zookeeper-server-start.sh kafka_2.12-0.10.2.1/config/zookeeper.properties &
+kafka_2.12-2.3.1/bin/zookeeper-server-start.sh kafka_2.12-2.3.1/config/zookeeper.properties &
 ```
 
 Потом запускаем сам брокер Kafka подготовленным скриптом run_kafka.sh.
 
 ```
 #!/bin/sh
-kafka_2.12-0.10.2.1/bin/kafka-server-start.sh kafka_2.12-0.10.2.1/config/server.properties &
+kafka_2.12-2.3.1/bin/kafka-server-start.sh kafka_2.12-2.3.1/config/server.properties &
 ```
 
 Остановка происходит в обратной последовательности. 
@@ -52,7 +52,7 @@ $ create_topic.sh fast-messages
 
 ```
 #!/bin/sh
-kafka_2.12-0.10.2.1/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic $1 &
+kafka_2.12-2.3.1/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic $1 &
 ```
 Впоследствии можем сменить параметры используя срипты из дистрибутива Kafka или change_topic_partitions.sh для увеличения числа разделов.  
 Топики могут автоматически создаваться и из приложения, но это считается опасным подходом, так как имена топиков имеют ограничения. 

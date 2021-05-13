@@ -18,4 +18,4 @@ echo "REPLICATION_FACTOR:" ${REPLICATION_FACTOR}
 
 sleep 20
 
-kafka/kafka_2.12-1.1.0/bin/kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor ${REPLICATION_FACTOR} --partitions ${PARTITIONS} --topic ${TOPIC} --if-not-exists
+kafka/kafka_2.12-2.3.1/bin/kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor ${REPLICATION_FACTOR} --partitions ${PARTITIONS} --topic ${TOPIC} --if-not-exists
