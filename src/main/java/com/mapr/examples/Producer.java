@@ -95,9 +95,8 @@ public class Producer {
                 // send lots of messages
                 Span parent = tracer.spanBuilder("producer").startSpan();
 
-                Map<String, AttributeValue> attributes = new HashMap<>();
-                attributes.put("message_id", AttributeValue.longAttributeValue(i));
-                parent.addAnnotation("Message created", attributes);
+                parent.addAnnotation("Message created");
+                parent.putAttribute("message_id", AttributeValue.longAttributeValue(i));
 
                 SpanContext traceCtx = parent.getContext();
 
