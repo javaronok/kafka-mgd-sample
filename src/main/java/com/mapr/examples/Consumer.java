@@ -3,6 +3,11 @@ package com.mapr.examples;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
+import io.opencensus.exporter.trace.zipkin.ZipkinTraceExporter;
+import io.opencensus.trace.*;
+import io.opencensus.trace.config.TraceConfig;
+import io.opencensus.trace.config.TraceParams;
+import io.opencensus.trace.samplers.Samplers;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -13,12 +18,14 @@ import org.kohsuke.args4j.Option;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -53,7 +60,17 @@ public class Consumer {
     }
 
     private void run() throws IOException {
+        initTracing();
         run(brokers, threads);
+    }
+
+    private static void initTracing() {
+        ZipkinTraceExporter.createAndRegister(
+                "http://localhost:9411/api/v2/spans", "consumer-service");
+
+        TraceConfig traceConfig = Tracing.getTraceConfig();
+        TraceParams activeTraceParams = traceConfig.getActiveTraceParams();
+        traceConfig.updateActiveTraceParams(activeTraceParams.toBuilder().setSampler(Samplers.alwaysSample()).build());
     }
 
     private void run(String brokers, Integer threads) throws IOException {
@@ -101,9 +118,12 @@ public class Consumer {
         //consumer.assign(Collections.singleton(new TopicPartition("fast-messages", 1)));
         int timeouts = 0;
         //noinspection InfiniteLoopStatement
+
+        Tracer tracer = Tracing.getTracer();
+
         while (true) {
             // read records with a short timeout. If we time out, we don't really care.
-            ConsumerRecords<String, String> records = consumer.poll(10000);
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
             Thread.yield();
             if (records.count() == 0) {
                 timeouts++;
@@ -118,12 +138,20 @@ public class Consumer {
                         JsonNode msg = mapper.readTree(record.value());
                         switch (msg.get("type").asText()) {
                             case "test":
-                                SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
-                                Date date = new Date(msg.get("t").asLong());
-                                System.out.printf("Thread: %s, Topic:%s, partition:%d, Value: %d, time: %s \n",
-                                        Thread.currentThread().getName(),
-                                        record.topic(), record.partition(),
-                                        msg.get("k").asInt(), sdf.format(date));
+                                SpanContext remote = SpanContext.create(
+                                        TraceId.fromLowerBase16(msg.get("traceId").asText()),
+                                        SpanId.generateRandomId(ThreadLocalRandom.current()),
+                                        tracer.getCurrentSpan().getContext().getTraceOptions(),
+                                        Tracestate.builder().build());
+
+                                tracer.spanBuilderWithRemoteParent("consumer", remote).startSpanAndRun(() -> {
+                                    SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
+                                    Date date = new Date(msg.get("t").asLong());
+                                    System.out.printf("Thread: %s, Topic:%s, partition:%d, Value: %d, time: %s \n",
+                                            Thread.currentThread().getName(),
+                                            record.topic(), record.partition(),
+                                            msg.get("k").asInt(), sdf.format(date));
+                                });
                                 break;
                             case "marker":
                                 break;
@@ -134,7 +162,7 @@ public class Consumer {
                         checkFullDelivered();
                         break;
                     case "summary-stat":
-                        long amount = Long.valueOf(record.value());
+                        long amount = Long.parseLong(record.value());
                         this.statistics.setAmount(amount);
                         System.out.println("Statistics: " + record.key() + "=" + record.value());
                         checkFullDelivered();
