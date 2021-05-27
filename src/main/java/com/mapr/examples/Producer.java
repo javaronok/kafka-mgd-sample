@@ -1,25 +1,18 @@
 package com.mapr.examples;
 
 import com.google.common.io.Resources;
-import io.opencensus.common.Scope;
-import io.opencensus.exporter.trace.zipkin.ZipkinExporterConfiguration;
-import io.opencensus.trace.*;
-import io.opencensus.trace.config.TraceConfig;
-import io.opencensus.trace.config.TraceParams;
-import io.opencensus.trace.samplers.Samplers;
+import com.mapr.tracing.TracingService;
+import com.mapr.tracing.TracingSpan;
+import io.opencensus.trace.TraceId;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import io.opencensus.exporter.trace.zipkin.ZipkinTraceExporter;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -53,24 +46,7 @@ public class Producer {
         producer.run();
     }
 
-    private static void initTracing() {
-        ZipkinExporterConfiguration cfg = ZipkinExporterConfiguration.builder()
-                .setV2Url("http://localhost:9411/api/v2/spans")
-                .setServiceName("producer-service")
-                .build();
-        ZipkinTraceExporter.createAndRegister(cfg);
-
-        TraceConfig traceConfig = Tracing.getTraceConfig();
-        TraceParams activeTraceParams = traceConfig.getActiveTraceParams();
-        traceConfig.updateActiveTraceParams(
-                activeTraceParams.toBuilder().setSampler(Samplers.alwaysSample())
-                .setMaxNumberOfAnnotations(10)
-                .setMaxNumberOfAttributes(10)
-                .build());
-    }
-
     private void run() throws IOException {
-        initTracing();
         run(brokers, amount, delay);
     }
 
@@ -88,35 +64,35 @@ public class Producer {
             producer = new KafkaProducer<>(properties);
         }
 
-        Tracer tracer = Tracing.getTracer();
+        TracingService tracer = TracingService.createTracingService();
 
         try {
             for (int i = 0; i < amount; i++) {
                 // send lots of messages
-                Span parent = tracer.spanBuilder("producer").startSpan();
+                TracingSpan parent = tracer
+                        .createSpan("producer")
+                        .addLog("Message created")
+                        .addTag("message_id", Long.valueOf(i));
 
-                parent.addAnnotation("Message created");
-                parent.putAttribute("message_id", AttributeValue.longAttributeValue(i));
+                TraceId traceId = parent.traceId();
 
-                SpanContext traceCtx = parent.getContext();
-
-                Span formatSpan = tracer.spanBuilderWithExplicitParent("format", parent).startSpan();
+                TracingSpan formatSpan = tracer.createSpan("format", parent);
 
                 Date t = new Date();
                 String message = String.format(
                         "{\"type\":\"test\", \"t\":%d, \"k\":%d, \"traceId\":\"%s\"}",
-                        t.getTime(), i, traceCtx.getTraceId().toLowerBase16());
+                        t.getTime(), i, traceId != null ? traceId.toLowerBase16() : "null");
 
-                formatSpan.end();
+                formatSpan.close();
 
-                try (Scope sendScope = tracer.spanBuilderWithExplicitParent("send", parent).startScopedSpan()) {
+                try (TracingSpan sendSpan = tracer.createSpan("send", parent)) {
                     producer.send(new ProducerRecord<>("fast-messages", String.valueOf(i), message));
                 }
 
                 System.out.println("Sent msg number " + i);
 
-                parent.addAnnotation("Message sent");
-                parent.end();
+                parent.addLog("Message sent")
+                        .close();
 
                 if (delay > 0) {
                     Thread.sleep(delay);

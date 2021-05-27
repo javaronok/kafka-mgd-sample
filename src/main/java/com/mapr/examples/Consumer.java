@@ -3,11 +3,8 @@ package com.mapr.examples;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
-import io.opencensus.exporter.trace.zipkin.ZipkinTraceExporter;
-import io.opencensus.trace.*;
-import io.opencensus.trace.config.TraceConfig;
-import io.opencensus.trace.config.TraceParams;
-import io.opencensus.trace.samplers.Samplers;
+import com.mapr.tracing.TracingService;
+import com.mapr.tracing.TracingSpan;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -25,7 +22,6 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -60,20 +56,10 @@ public class Consumer {
     }
 
     private void run() throws IOException {
-        initTracing();
         run(brokers, threads);
     }
 
-    private static void initTracing() {
-        ZipkinTraceExporter.createAndRegister(
-                "http://localhost:9411/api/v2/spans", "consumer-service");
-
-        TraceConfig traceConfig = Tracing.getTraceConfig();
-        TraceParams activeTraceParams = traceConfig.getActiveTraceParams();
-        traceConfig.updateActiveTraceParams(activeTraceParams.toBuilder().setSampler(Samplers.alwaysSample()).build());
-    }
-
-    private void run(String brokers, Integer threads) throws IOException {
+    private void run(String brokers, Integer threads) {
         ExecutorService executor = Executors.newFixedThreadPool(threads);
 
         for (int i = 0; i < threads; i++) {
@@ -101,7 +87,7 @@ public class Consumer {
         };
     }
 
-    private void consume(ObjectMapper mapper, String brokers) throws IOException {
+    private void consume(ObjectMapper mapper, String brokers) throws Exception {
         KafkaConsumer<String, String> consumer;
         try (InputStream props = Resources.getResource("consumer.props").openStream()) {
             Properties properties = new Properties();
@@ -119,7 +105,7 @@ public class Consumer {
         int timeouts = 0;
         //noinspection InfiniteLoopStatement
 
-        Tracer tracer = Tracing.getTracer();
+        TracingService tracer = TracingService.createTracingService();
 
         while (true) {
             // read records with a short timeout. If we time out, we don't really care.
@@ -138,20 +124,15 @@ public class Consumer {
                         JsonNode msg = mapper.readTree(record.value());
                         switch (msg.get("type").asText()) {
                             case "test":
-                                SpanContext remote = SpanContext.create(
-                                        TraceId.fromLowerBase16(msg.get("traceId").asText()),
-                                        SpanId.generateRandomId(ThreadLocalRandom.current()),
-                                        tracer.getCurrentSpan().getContext().getTraceOptions(),
-                                        Tracestate.builder().build());
-
-                                tracer.spanBuilderWithRemoteParent("consumer", remote).startSpanAndRun(() -> {
+                                String traceId = msg.get("traceId").asText();
+                                try (TracingSpan consumeSpan = tracer.createSpanFromRemote("consumer", traceId, null, false)) {
                                     SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
                                     Date date = new Date(msg.get("t").asLong());
                                     System.out.printf("Thread: %s, Topic:%s, partition:%d, Value: %d, time: %s \n",
                                             Thread.currentThread().getName(),
                                             record.topic(), record.partition(),
                                             msg.get("k").asInt(), sdf.format(date));
-                                });
+                                }
                                 break;
                             case "marker":
                                 break;
