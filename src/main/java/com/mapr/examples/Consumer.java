@@ -3,6 +3,8 @@ package com.mapr.examples;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
+import com.mapr.tracing.TracingService;
+import com.mapr.tracing.TracingSpan;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -13,6 +15,7 @@ import org.kohsuke.args4j.Option;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Properties;
@@ -56,7 +59,7 @@ public class Consumer {
         run(brokers, threads);
     }
 
-    private void run(String brokers, Integer threads) throws IOException {
+    private void run(String brokers, Integer threads) {
         ExecutorService executor = Executors.newFixedThreadPool(threads);
 
         for (int i = 0; i < threads; i++) {
@@ -84,7 +87,7 @@ public class Consumer {
         };
     }
 
-    private void consume(ObjectMapper mapper, String brokers) throws IOException {
+    private void consume(ObjectMapper mapper, String brokers) throws Exception {
         KafkaConsumer<String, String> consumer;
         try (InputStream props = Resources.getResource("consumer.props").openStream()) {
             Properties properties = new Properties();
@@ -101,9 +104,12 @@ public class Consumer {
         //consumer.assign(Collections.singleton(new TopicPartition("fast-messages", 1)));
         int timeouts = 0;
         //noinspection InfiniteLoopStatement
+
+        TracingService tracer = TracingService.createTracingService();
+
         while (true) {
             // read records with a short timeout. If we time out, we don't really care.
-            ConsumerRecords<String, String> records = consumer.poll(10000);
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
             Thread.yield();
             if (records.count() == 0) {
                 timeouts++;
@@ -118,12 +124,15 @@ public class Consumer {
                         JsonNode msg = mapper.readTree(record.value());
                         switch (msg.get("type").asText()) {
                             case "test":
-                                SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
-                                Date date = new Date(msg.get("t").asLong());
-                                System.out.printf("Thread: %s, Topic:%s, partition:%d, Value: %d, time: %s \n",
-                                        Thread.currentThread().getName(),
-                                        record.topic(), record.partition(),
-                                        msg.get("k").asInt(), sdf.format(date));
+                                String traceId = msg.get("traceId").asText();
+                                try (TracingSpan consumeSpan = tracer.createSpanFromRemote("consumer", traceId, null, false)) {
+                                    SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
+                                    Date date = new Date(msg.get("t").asLong());
+                                    System.out.printf("Thread: %s, Topic:%s, partition:%d, Value: %d, time: %s \n",
+                                            Thread.currentThread().getName(),
+                                            record.topic(), record.partition(),
+                                            msg.get("k").asInt(), sdf.format(date));
+                                }
                                 break;
                             case "marker":
                                 break;
@@ -134,7 +143,7 @@ public class Consumer {
                         checkFullDelivered();
                         break;
                     case "summary-stat":
-                        long amount = Long.valueOf(record.value());
+                        long amount = Long.parseLong(record.value());
                         this.statistics.setAmount(amount);
                         System.out.println("Statistics: " + record.key() + "=" + record.value());
                         checkFullDelivered();

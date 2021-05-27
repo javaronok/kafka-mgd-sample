@@ -1,6 +1,9 @@
 package com.mapr.examples;
 
 import com.google.common.io.Resources;
+import com.mapr.tracing.TracingService;
+import com.mapr.tracing.TracingSpan;
+import io.opencensus.trace.TraceId;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.kohsuke.args4j.CmdLineException;
@@ -61,13 +64,36 @@ public class Producer {
             producer = new KafkaProducer<>(properties);
         }
 
+        TracingService tracer = TracingService.createTracingService();
+
         try {
             for (int i = 0; i < amount; i++) {
                 // send lots of messages
+                TracingSpan parent = tracer
+                        .createSpan("producer")
+                        .addLog("Message created")
+                        .addTag("message_id", Long.valueOf(i));
+
+                TraceId traceId = parent.traceId();
+
+                TracingSpan formatSpan = tracer.createSpan("format", parent);
+
                 Date t = new Date();
-                producer.send(new ProducerRecord<>("fast-messages", String.valueOf(i),
-                        String.format("{\"type\":\"test\", \"t\":%d, \"k\":%d}", t.getTime(), i)));
+                String message = String.format(
+                        "{\"type\":\"test\", \"t\":%d, \"k\":%d, \"traceId\":\"%s\"}",
+                        t.getTime(), i, traceId != null ? traceId.toLowerBase16() : "null");
+
+                formatSpan.close();
+
+                try (TracingSpan sendSpan = tracer.createSpan("send", parent)) {
+                    producer.send(new ProducerRecord<>("fast-messages", String.valueOf(i), message));
+                }
+
                 System.out.println("Sent msg number " + i);
+
+                parent.addLog("Message sent")
+                        .close();
+
                 if (delay > 0) {
                     Thread.sleep(delay);
                 }
