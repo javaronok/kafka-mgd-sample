@@ -3,8 +3,6 @@ package com.mapr.tracing;
 import io.opencensus.trace.Span;
 import io.opencensus.trace.TraceId;
 
-import java.io.Closeable;
-
 public interface TracingSpan extends AutoCloseable {
   Span getSpan();
 

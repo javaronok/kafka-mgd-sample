@@ -1,19 +1,16 @@
 package com.mapr.examples;
 
-import com.google.common.io.Resources;
+import com.mapr.producer.AvroKafkaProducer;
+import com.mapr.producer.KafkaMessageProducer;
+import com.mapr.producer.PlainTextKafkaProducer;
 import com.mapr.tracing.TracingService;
 import com.mapr.tracing.TracingSpan;
 import io.opencensus.trace.TraceId;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Date;
-import java.util.Properties;
 
 /**
  * This producer will send a bunch of messages to topic "fast-messages".
@@ -28,7 +25,10 @@ public class Producer {
     @Option(name = "-delay", usage = "Delay between sending")
     private Long delay = 0L;
 
-    public static void main(String[] args) throws IOException {
+    @Option(name = "-avro", usage = "Avro serialization")
+    private Boolean avro = false;
+
+    public static void main(String[] args) {
         Producer producer = new Producer();
         CmdLineParser parser = new CmdLineParser(producer);
 
@@ -46,23 +46,18 @@ public class Producer {
         producer.run();
     }
 
-    private void run() throws IOException {
+    private void run() {
         run(brokers, amount, delay);
     }
 
-    public void run(String brokers, long amount, long delay) throws IOException {
+    private KafkaMessageProducer createProducer(String brokers) {
+        return avro != null && avro ? new AvroKafkaProducer(brokers) : new PlainTextKafkaProducer(brokers);
+    }
+
+    public void run(String brokers, long amount, long delay) {
         // set up the producer
-        KafkaProducer<String, String> producer;
-        try (InputStream props = Resources.getResource("producer.props").openStream()) {
-            Properties properties = new Properties();
-            properties.load(props);
-
-            if (brokers != null && !brokers.isEmpty()) {
-                properties.put("bootstrap.servers", brokers);
-            }
-
-            producer = new KafkaProducer<>(properties);
-        }
+        KafkaMessageProducer messageProducer = createProducer(brokers);
+        PlainTextKafkaProducer statProducer = new PlainTextKafkaProducer(brokers);
 
         TracingService tracer = TracingService.createTracingService();
 
@@ -86,23 +81,23 @@ public class Producer {
                 formatSpan.close();
 
                 try (TracingSpan sendSpan = tracer.createSpan("send", parent)) {
-                    producer.send(new ProducerRecord<>("fast-messages", String.valueOf(i), message));
+                    messageProducer.sendMessageSync("fast-messages", String.valueOf(i), message);
                 }
 
                 System.out.println("Sent msg number " + i);
 
-                parent.addLog("Message sent")
-                        .close();
+                parent.addLog("Message sent").close();
 
                 if (delay > 0) {
                     Thread.sleep(delay);
                 }
             }
-            producer.send(new ProducerRecord<>("summary-stat", "count", String.valueOf(amount)));
+            statProducer.sendMessageSync("summary-stat", "count", String.valueOf(amount));
         } catch (Throwable throwable) {
             System.out.printf("%s", throwable.getStackTrace());
         } finally {
-            producer.close();
+            messageProducer.close();
+            statProducer.close();
         }
     }
 }

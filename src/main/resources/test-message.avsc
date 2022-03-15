@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "TestMessage",
+  "namespace": "com.mgd.message_1_0",
+  "fields": [
+    {"name": "type", "type": "string"},
+    {"name": "t", "type": "long"},
+    {"name": "k", "type": "int"},
+    {"name": "traceId", "type": "string"}
+  ]
+}

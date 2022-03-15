@@ -2,24 +2,18 @@ package com.mapr.examples;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.io.Resources;
+import com.mapr.consumer.AvroKafkaConsumer;
+import com.mapr.consumer.KafkaMessageConsumer;
+import com.mapr.consumer.PlainTextKafkaConsumer;
 import com.mapr.tracing.TracingService;
 import com.mapr.tracing.TracingSpan;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
-import java.util.Arrays;
 import java.util.Date;
-import java.util.Properties;
-import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -35,9 +29,12 @@ public class Consumer {
     @Option(name = "-threads", usage = "Kafka consumer threads number")
     private Integer threads = 1;
 
+    @Option(name = "-avro", usage = "Avro serialization")
+    private Boolean avro = false;
+
     private Statistics statistics = new Statistics();
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         Consumer consumer = new Consumer();
         CmdLineParser parser = new CmdLineParser(consumer);
 
@@ -55,104 +52,83 @@ public class Consumer {
         consumer.run();
     }
 
-    private void run() throws IOException {
+    private void run() {
         run(brokers, threads);
     }
 
     private void run(String brokers, Integer threads) {
         ExecutorService executor = Executors.newFixedThreadPool(threads);
+        ExecutorService stat = Executors.newSingleThreadExecutor();
 
-        for (int i = 0; i < threads; i++) {
-            Runnable consumer = createConsumer(brokers);
+        for (int i = 0; i < threads-1; i++) {
+            KafkaMessageConsumer c = createKafkaConsumer(brokers, "fast-messages");
+            Runnable consumer = consumeJob(c);
             executor.submit(consumer);
         }
+
+        KafkaMessageConsumer c = new PlainTextKafkaConsumer(brokers, "summary-stat");
+        Runnable consumer = consumeJob(c);
+        stat.submit(consumer);
+
         executor.shutdown();
+        stat.shutdown();
 
         try {
-            executor.awaitTermination(30, TimeUnit.MINUTES);
+            executor.awaitTermination(2, TimeUnit.MINUTES);
+            stat.awaitTermination(1, TimeUnit.MINUTES);
         } catch (InterruptedException e) {
         }
     }
 
-    private Runnable createConsumer(String brokers) {
+    private KafkaMessageConsumer createKafkaConsumer(String brokers, String topic) {
+        return avro != null && avro ? new AvroKafkaConsumer(brokers, topic) : new PlainTextKafkaConsumer(brokers, topic);
+    }
+
+    private Runnable consumeJob(KafkaMessageConsumer c) {
         // set up house-keeping
-        final ObjectMapper mapper = new ObjectMapper();
         return () -> {
             // and the consumer
             try {
-                consume(mapper, brokers);
+                c.consume(this::consumeTopicMessage);
             } catch (Exception e) {
                 System.out.printf("%s", e);
             }
         };
     }
 
-    private void consume(ObjectMapper mapper, String brokers) throws Exception {
-        KafkaConsumer<String, String> consumer;
-        try (InputStream props = Resources.getResource("consumer.props").openStream()) {
-            Properties properties = new Properties();
-            properties.load(props);
-            if (properties.getProperty("group.id") == null) {
-                properties.setProperty("group.id", "group-" + new Random().nextInt(100000));
-            }
-            if (brokers != null && !brokers.isEmpty()) {
-                properties.put("bootstrap.servers", brokers);
-            }
-            consumer = new KafkaConsumer<>(properties);
-        }
-        consumer.subscribe(Arrays.asList("fast-messages", "summary-stat"));
-        //consumer.assign(Collections.singleton(new TopicPartition("fast-messages", 1)));
-        int timeouts = 0;
-        //noinspection InfiniteLoopStatement
-
-        TracingService tracer = TracingService.createTracingService();
-
-        while (true) {
-            // read records with a short timeout. If we time out, we don't really care.
-            ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
-            Thread.yield();
-            if (records.count() == 0) {
-                timeouts++;
-            } else {
-                System.out.printf("Got %d records after %d timeouts\n", records.count(), timeouts);
-                timeouts = 0;
-            }
-            for (ConsumerRecord<String, String> record : records) {
-                switch (record.topic()) {
-                    case "fast-messages":
-                        // the send time is encoded inside the message
-                        JsonNode msg = mapper.readTree(record.value());
-                        switch (msg.get("type").asText()) {
-                            case "test":
-                                String traceId = msg.get("traceId").asText();
-                                try (TracingSpan consumeSpan = tracer.createSpanFromRemote("consumer", traceId, null, false)) {
-                                    SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
-                                    Date date = new Date(msg.get("t").asLong());
-                                    System.out.printf("Thread: %s, Topic:%s, partition:%d, Value: %d, time: %s \n",
-                                            Thread.currentThread().getName(),
-                                            record.topic(), record.partition(),
-                                            msg.get("k").asInt(), sdf.format(date));
-                                }
-                                break;
-                            case "marker":
-                                break;
-                            default:
-                                throw new IllegalArgumentException("Illegal message type: " + msg.get("type"));
+    public void consumeTopicMessage(String topic, int partition, String key, String value, ObjectMapper mapper, TracingService tracer) throws Exception {
+        switch (topic) {
+            case "fast-messages":
+                // the send time is encoded inside the message
+                JsonNode msg = mapper.readTree(value);
+                switch (msg.get("type").asText()) {
+                    case "test":
+                        String traceId = msg.get("traceId").asText();
+                        try (TracingSpan consumeSpan = tracer.createSpanFromRemote("consumer", traceId, null, false)) {
+                            SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
+                            Date date = new Date(msg.get("t").asLong());
+                            System.out.printf("Thread: %s, Topic:%s, partition:%d, Value: %d, time: %s \n",
+                                    Thread.currentThread().getName(), topic, partition,
+                                    msg.get("k").asInt(), sdf.format(date)
+                            );
                         }
-                        this.statistics.incDelivered();
-                        checkFullDelivered();
                         break;
-                    case "summary-stat":
-                        long amount = Long.parseLong(record.value());
-                        this.statistics.setAmount(amount);
-                        System.out.println("Statistics: " + record.key() + "=" + record.value());
-                        checkFullDelivered();
+                    case "marker":
                         break;
                     default:
-                        throw new IllegalStateException("Shouldn't be possible to get message on topic " + record.topic());
+                        throw new IllegalArgumentException("Illegal message type: " + msg.get("type"));
                 }
-            }
-            consumer.commitSync();
+                this.statistics.incDelivered();
+                checkFullDelivered();
+                break;
+            case "summary-stat":
+                long amount = Long.parseLong(value);
+                this.statistics.setAmount(amount);
+                System.out.println("Statistics: " + key + "=" + value);
+                checkFullDelivered();
+                break;
+            default:
+                throw new IllegalStateException("Shouldn't be possible to get message on topic " + topic);
         }
     }
 

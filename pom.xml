@@ -40,6 +40,12 @@
             <version>2.33</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>1.9.1</version>
+        </dependency>
+
+        <dependency>
             <groupId>io.opencensus</groupId>
             <artifactId>opencensus-api</artifactId>
             <version>${opencensus.version}</version>
@@ -94,25 +100,24 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.skife.maven</groupId>
-                <artifactId>really-executable-jar-maven-plugin</artifactId>
-                <version>1.1.0</version>
-                <configuration>
-                    <!-- value of flags will be interpolated into the java invocation -->
-                    <!-- as "java $flags -jar ..." -->
-                    <!--<flags></flags>-->
-
-                    <!-- (optional) name for binary executable, if not set will just -->
-                    <!-- make the regular jar artifact executable -->
-                    <programFile>kafka-example</programFile>
-                </configuration>
-
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
                 <executions>
                     <execution>
                         <phase>package</phase>
                         <goals>
-                            <goal>really-executable-jar</goal>
+                            <goal>single</goal>
                         </goals>
+                        <configuration>
+                            <archive>
+                                <manifest>
+                                    <mainClass>com.mapr.examples.Run</mainClass>
+                                </manifest>
+                            </archive>
+                            <descriptorRefs>
+                                <descriptorRef>jar-with-dependencies</descriptorRef>
+                            </descriptorRefs>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
