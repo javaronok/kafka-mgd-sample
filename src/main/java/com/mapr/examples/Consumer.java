@@ -7,7 +7,6 @@ import com.mapr.consumer.KafkaMessageConsumer;
 import com.mapr.consumer.PlainTextKafkaConsumer;
 import com.mapr.tracing.TracingService;
 import com.mapr.tracing.TracingSpan;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -25,6 +24,9 @@ import java.util.concurrent.atomic.AtomicLong;
 public class Consumer {
     @Option(name = "-brokers", usage = "Kafka brokers list (delimiter ',')")
     private String brokers = "localhost:9092";
+
+    @Option(name = "-registry", usage = "Schema registry URL")
+    private String schemaRegistry = "localhost:8081";
 
     @Option(name = "-threads", usage = "Kafka consumer threads number")
     private Integer threads = 1;
@@ -61,7 +63,7 @@ public class Consumer {
         ExecutorService stat = Executors.newSingleThreadExecutor();
 
         for (int i = 0; i < threads-1; i++) {
-            KafkaMessageConsumer c = createKafkaConsumer(brokers, "fast-messages");
+            KafkaMessageConsumer c = createKafkaConsumer(brokers, "fast-messages", schemaRegistry);
             Runnable consumer = consumeJob(c);
             executor.submit(consumer);
         }
@@ -80,8 +82,10 @@ public class Consumer {
         }
     }
 
-    private KafkaMessageConsumer createKafkaConsumer(String brokers, String topic) {
-        return avro != null && avro ? new AvroKafkaConsumer(brokers, topic) : new PlainTextKafkaConsumer(brokers, topic);
+    private KafkaMessageConsumer createKafkaConsumer(String brokers, String topic, String schemaRegistry) {
+        return avro != null && avro
+                ? new AvroKafkaConsumer(brokers, topic, schemaRegistry)
+                : new PlainTextKafkaConsumer(brokers, topic);
     }
 
     private Runnable consumeJob(KafkaMessageConsumer c) {

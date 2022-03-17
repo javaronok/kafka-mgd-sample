@@ -2,10 +2,9 @@ package com.mapr.producer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.Resources;
-import com.mapr.avro.GenericMessageAvroSerializer;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
@@ -16,33 +15,32 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
-import static com.mapr.avro.GenericMessageAvroSerializer.SCHEMA;
+import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 
 public class AvroKafkaProducer implements KafkaMessageProducer {
   private final ObjectMapper mapper = new ObjectMapper();
 
-  private final KafkaProducer<String, List<GenericRecord>> producer;
+  private final KafkaProducer<String, GenericRecord> producer;
 
   private final Schema schema;
 
-  public AvroKafkaProducer(String brokers) {
+  public AvroKafkaProducer(String brokers, String schemaUrl) {
     try {
       File f = new File(Resources.getResource("test-message.avsc").getFile());
       schema = new Schema.Parser().parse(f);
 
       Properties properties = KafkaMessageProducer.readProducerProps(brokers);
       Map<String, Object> cfg = Maps.newHashMap(Maps.fromProperties(properties));
-      cfg.put(SCHEMA, schema);
+      cfg.put(SCHEMA_REGISTRY_URL_CONFIG, schemaUrl);
 
       Serializer<String> keySerializer = new StringSerializer();
       keySerializer.configure(cfg, true);
 
-      Serializer<List<GenericRecord>> valSerializer = new GenericMessageAvroSerializer();
+      Serializer valSerializer = new KafkaAvroSerializer();
       valSerializer.configure(cfg, false);
 
       producer = new KafkaProducer<>(cfg, keySerializer, valSerializer);
@@ -67,7 +65,7 @@ public class AvroKafkaProducer implements KafkaMessageProducer {
             .set("traceId", node.get("traceId").asText())
             .build();
 
-    ProducerRecord<String, List<GenericRecord>> r = new ProducerRecord<>(topic, key, Lists.newArrayList(record));
+    ProducerRecord<String, GenericRecord> r = new ProducerRecord<>(topic, key, record);
     try {
       producer.send(r).get();
     } catch (InterruptedException | ExecutionException e) {

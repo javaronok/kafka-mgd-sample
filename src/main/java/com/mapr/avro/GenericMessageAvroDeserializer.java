@@ -13,6 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Use {@link io.confluent.kafka.serializers.KafkaAvroDeserializer}
+ */
+@Deprecated
 public class GenericMessageAvroDeserializer implements Deserializer<List<GenericRecord>> {
   public static final String SCHEMA = "SCHEMA";
 

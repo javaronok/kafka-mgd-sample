@@ -11,6 +11,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Use {@link io.confluent.kafka.serializers.KafkaAvroSerializer}
+ */
+@Deprecated
 public class GenericMessageAvroSerializer implements Serializer<List<GenericRecord>> {
   public static final String SCHEMA = "SCHEMA";
 

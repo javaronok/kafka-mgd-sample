@@ -19,6 +19,9 @@ public class Producer {
     @Option(name = "-brokers", usage = "Kafka brokers list (delimiter ',')")
     private String brokers = "localhost:9092";
 
+    @Option(name = "-registry", usage = "Schema registry URL")
+    private String schemaRegistry = "localhost:8081";
+
     @Option(name = "-amount", usage = "Amount of messages")
     private Long amount = 1000L;
 
@@ -47,16 +50,18 @@ public class Producer {
     }
 
     private void run() {
-        run(brokers, amount, delay);
+        run(brokers, schemaRegistry, amount, delay);
     }
 
-    private KafkaMessageProducer createProducer(String brokers) {
-        return avro != null && avro ? new AvroKafkaProducer(brokers) : new PlainTextKafkaProducer(brokers);
+    private KafkaMessageProducer createProducer(String brokers, String schemaRegistryUrl) {
+        return avro != null && avro
+                ? new AvroKafkaProducer(brokers, schemaRegistryUrl)
+                : new PlainTextKafkaProducer(brokers);
     }
 
-    public void run(String brokers, long amount, long delay) {
+    public void run(String brokers, String schemaRegistryUrl, long amount, long delay) {
         // set up the producer
-        KafkaMessageProducer messageProducer = createProducer(brokers);
+        KafkaMessageProducer messageProducer = createProducer(brokers, schemaRegistryUrl);
         PlainTextKafkaProducer statProducer = new PlainTextKafkaProducer(brokers);
 
         TracingService tracer = TracingService.createTracingService();
@@ -94,7 +99,8 @@ public class Producer {
             }
             statProducer.sendMessageSync("summary-stat", "count", String.valueOf(amount));
         } catch (Throwable throwable) {
-            System.out.printf("%s", throwable.getStackTrace());
+            System.out.printf("%s", throwable);
+            throwable.printStackTrace();
         } finally {
             messageProducer.close();
             statProducer.close();
