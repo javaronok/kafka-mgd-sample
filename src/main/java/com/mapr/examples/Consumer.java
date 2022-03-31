@@ -111,9 +111,9 @@ public class Consumer {
                         try (TracingSpan consumeSpan = tracer.createSpanFromRemote("consumer", traceId, null, false)) {
                             SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
                             Date date = new Date(msg.get("t").asLong());
-                            System.out.printf("Thread: %s, Topic:%s, partition:%d, Value: %d, time: %s \n",
+                            System.out.printf("Thread: %s, Topic:%s, partition:%d, Value: %d, Text: %s, time: %s \n",
                                     Thread.currentThread().getName(), topic, partition,
-                                    msg.get("k").asInt(), sdf.format(date)
+                                    msg.get("k").asInt(), msg.get("message").asText(), sdf.format(date)
                             );
                         }
                         break;

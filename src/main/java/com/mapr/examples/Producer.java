@@ -31,6 +31,9 @@ public class Producer {
     @Option(name = "-avro", usage = "Avro serialization")
     private Boolean avro = false;
 
+    @Option(name = "-text", usage = "Message text")
+    private String text;
+
     public static void main(String[] args) {
         Producer producer = new Producer();
         CmdLineParser parser = new CmdLineParser(producer);
@@ -50,7 +53,7 @@ public class Producer {
     }
 
     private void run() {
-        run(brokers, schemaRegistry, amount, delay);
+        run(brokers, schemaRegistry, text, amount, delay);
     }
 
     private KafkaMessageProducer createProducer(String brokers, String schemaRegistryUrl) {
@@ -59,7 +62,7 @@ public class Producer {
                 : new PlainTextKafkaProducer(brokers);
     }
 
-    public void run(String brokers, String schemaRegistryUrl, long amount, long delay) {
+    public void run(String brokers, String schemaRegistryUrl, String text, long amount, long delay) {
         // set up the producer
         KafkaMessageProducer messageProducer = createProducer(brokers, schemaRegistryUrl);
         PlainTextKafkaProducer statProducer = new PlainTextKafkaProducer(brokers);
@@ -80,8 +83,9 @@ public class Producer {
 
                 Date t = new Date();
                 String message = String.format(
-                        "{\"type\":\"test\", \"t\":%d, \"k\":%d, \"traceId\":\"%s\"}",
-                        t.getTime(), i, traceId != null ? traceId.toLowerBase16() : "null");
+                        "{\"type\":\"test\", \"t\":%d, \"k\":%d, \"traceId\":\"%s\", \"message\":\"%s\"}",
+                        t.getTime(), i, traceId != null ? traceId.toLowerBase16() : "null", text
+                );
 
                 formatSpan.close();
 

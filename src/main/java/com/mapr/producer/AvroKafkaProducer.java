@@ -63,6 +63,7 @@ public class AvroKafkaProducer implements KafkaMessageProducer {
             .set("t", node.get("t").asLong())
             .set("k", node.get("k").asInt())
             .set("traceId", node.get("traceId").asText())
+            .set("message", node.get("message").asText())
             .build();
 
     ProducerRecord<String, GenericRecord> r = new ProducerRecord<>(topic, key, record);
