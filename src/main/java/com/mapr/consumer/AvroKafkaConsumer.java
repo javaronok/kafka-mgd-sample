@@ -2,9 +2,8 @@ package com.mapr.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
+import com.mapr.avro.JsonMessageAvroDeserializer;
 import com.mapr.tracing.TracingService;
-import io.confluent.kafka.serializers.KafkaAvroDeserializer;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -32,7 +31,7 @@ public class AvroKafkaConsumer implements KafkaMessageConsumer {
 
   @Override
   public void consume(MessageListener consumeMethod) throws Exception {
-    KafkaConsumer<String, GenericRecord> consumer;
+    KafkaConsumer<String, String> consumer;
     try {
       Properties properties = KafkaMessageConsumer.readConsumerProps(brokers);
 
@@ -42,7 +41,7 @@ public class AvroKafkaConsumer implements KafkaMessageConsumer {
       Deserializer<String> keyDeserializer = new StringDeserializer();
       keyDeserializer.configure(cfg, true);
 
-      Deserializer valDeserializer = new KafkaAvroDeserializer();
+      Deserializer valDeserializer = new JsonMessageAvroDeserializer();
       valDeserializer.configure(cfg, false);
 
       consumer = new KafkaConsumer<>(cfg, keyDeserializer, valDeserializer);
@@ -58,7 +57,7 @@ public class AvroKafkaConsumer implements KafkaMessageConsumer {
 
     while (true) {
       // read records with a short timeout. If we time out, we don't really care.
-      ConsumerRecords<String, GenericRecord> records = consumer.poll(Duration.ofSeconds(1));
+      ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
       Thread.yield();
       if (records.count() == 0) {
         timeouts++;
@@ -66,8 +65,8 @@ public class AvroKafkaConsumer implements KafkaMessageConsumer {
         System.out.printf("Got %d records after %d timeouts\n", records.count(), timeouts);
         timeouts = 0;
       }
-      for (ConsumerRecord<String, GenericRecord> record : records) {
-        String message = record.value().toString();
+      for (ConsumerRecord<String, String> record : records) {
+        String message = record.value();
         consumeMethod.consumeTopicMessage(record.topic(), record.partition(), record.key(), message, mapper, tracer);
       }
       consumer.commitSync();
