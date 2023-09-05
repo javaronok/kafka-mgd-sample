@@ -9,7 +9,7 @@
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <kafka.version>2.3.1</kafka.version>
+        <kafka.version>2.6.3</kafka.version>
         <opencensus.version>0.28.3</opencensus.version>
     </properties>
 
